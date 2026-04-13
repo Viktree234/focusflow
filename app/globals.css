@@ -1,0 +1,46 @@
+﻿@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root[data-theme='dark'] {
+  --bg: #0f1115;
+  --surface: #171b22;
+  --ink: #e5e7eb;
+  --ink-muted: #9ca3af;
+  --accent: #7c3aed;
+  --border: #1f2937;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+}
+
+.card {
+  @apply rounded-xl border border-[var(--border)] bg-[var(--surface)];
+}
+
+.btn {
+  @apply px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-150;
+}
+
+.btn-primary {
+  @apply btn bg-[var(--accent)] text-white hover:bg-purple-600;
+}
+
+.btn-secondary {
+  @apply btn border border-[var(--border)] text-[var(--ink)] bg-[var(--surface)] hover:border-[var(--accent)];
+}
+
+.input {
+  @apply w-full rounded-lg bg-[var(--surface)] border border-[var(--border)] px-3 py-2 text-sm text-[var(--ink)] outline-none focus:border-[var(--accent)];
+}
+
+.badge {
+  @apply inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-wide bg-[var(--surface)] border border-[var(--border)] text-[var(--ink-muted)];
+}
+
+.grid-cols-dashboard {
+  grid-template-columns: 1.2fr 0.8fr;
+}
