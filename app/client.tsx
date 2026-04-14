@@ -1,7 +1,12 @@
-﻿"use client";
+"use client";
 
 import { useState, useMemo, useTransition } from "react";
-import type { Task, PlannerBlock, Note, TaskPriority, TaskStatus } from "@/lib/supabase/database.types";
+import type { TaskPriority, TaskStatus } from "@/app/actions";
+import type { tasks, plannerBlocks, notes } from "@/lib/db/schema";
+
+type Task = typeof tasks.$inferSelect;
+type PlannerBlock = typeof plannerBlocks.$inferSelect;
+type Note = typeof notes.$inferSelect;
 import {
   createTask,
   updateTask,
@@ -56,20 +61,20 @@ export default function ProductivityClient({ tasks, plannerBlocks, notes }: Prop
     if (!taskDraft.title.trim()) return;
     const optimistic: Task = {
       id: `tmp-${Date.now()}`,
-      user_id: "temp",
+      userId: "temp",
       title: taskDraft.title.trim(),
       description: null,
-      due_date: taskDraft.due || null,
+      dueDate: taskDraft.due || null,
       priority: taskDraft.priority,
       status: "todo",
-      sort_order: taskList.length,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      sortOrder: taskList.length,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
     setTaskList((prev) => [...prev, optimistic]);
     setTaskDraft({ title: "", due: "", priority: "medium" });
     startTransition(async () => {
-      const res = await createTask({ title: optimistic.title, priority: optimistic.priority, dueDate: optimistic.due_date });
+      const res = await createTask({ title: optimistic.title, priority: optimistic.priority, dueDate: optimistic.dueDate === undefined ? undefined : optimistic.dueDate });
       if (!res.success) {
         setError(res.error);
         setTaskList((prev) => prev.filter((t) => t.id !== optimistic.id));
@@ -103,18 +108,18 @@ export default function ProductivityClient({ tasks, plannerBlocks, notes }: Prop
     if (!blockDraft.title.trim() || !blockDraft.start || !blockDraft.end) return;
     const optimistic: PlannerBlock = {
       id: `tmp-block-${Date.now()}`,
-      user_id: "temp",
+      userId: "temp",
       title: blockDraft.title.trim(),
-      starts_at: blockDraft.start,
-      ends_at: blockDraft.end,
+      startsAt: new Date(blockDraft.start),
+      endsAt: new Date(blockDraft.end),
       color: "blue",
-      linked_task_id: null,
-      created_at: new Date().toISOString(),
+      linkedTaskId: null,
+      createdAt: new Date(),
     };
     setBlockList((prev) => [...prev, optimistic]);
     setBlockDraft({ title: "", start: "", end: "" });
     startTransition(async () => {
-      const res = await savePlannerBlock({ title: optimistic.title, startsAt: optimistic.starts_at, endsAt: optimistic.ends_at });
+      const res = await savePlannerBlock({ title: optimistic.title, startsAt: optimistic.startsAt.toISOString(), endsAt: optimistic.endsAt.toISOString() });
       if (!res.success) {
         setError(res.error);
         setBlockList((prev) => prev.filter((b) => b.id !== optimistic.id));
@@ -140,12 +145,12 @@ export default function ProductivityClient({ tasks, plannerBlocks, notes }: Prop
     if (!noteDraft.title.trim()) return;
     const optimistic: Note = {
       id: `tmp-note-${Date.now()}`,
-      user_id: "temp",
+      userId: "temp",
       title: noteDraft.title.trim(),
       content: noteDraft.content,
       pinned: false,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
     setNoteList((prev) => [optimistic, ...prev]);
     setNoteDraft({ title: "", content: "" });
@@ -236,7 +241,7 @@ export default function ProductivityClient({ tasks, plannerBlocks, notes }: Prop
                     <span className="badge">{statusLabel[task.status]}</span>
                   </div>
                   <p className="text-xs text-[var(--ink-muted)] flex items-center gap-1">
-                    <Clock3 size={12} /> {task.due_date ? new Date(task.due_date).toLocaleDateString() : "No due date"}
+                    <Clock3 size={12} /> {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No due date"}
                   </p>
                 </div>
               </div>
@@ -274,9 +279,9 @@ export default function ProductivityClient({ tasks, plannerBlocks, notes }: Prop
                 <div>
                   <p className="font-medium text-ink">{b.title}</p>
                   <p className="text-xs text-[var(--ink-muted)]">
-                    {new Date(b.starts_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {new Date(b.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     {" · "}
-                    {new Date(b.ends_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {new Date(b.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </div>
                 <button className="btn-secondary px-2 text-rose-300" onClick={() => removeBlock(b.id)}>

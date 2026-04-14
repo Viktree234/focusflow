@@ -1,19 +1,28 @@
-﻿"use server";
+"use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
-import type { TaskPriority, TaskStatus } from "@/lib/supabase/database.types";
+import { db } from "@/lib/db";
+import { tasks, plannerBlocks, notes } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
+import { auth } from "@/auth";
+
+export type TaskPriority = "low" | "medium" | "high";
+export type TaskStatus = "todo" | "doing" | "done";
 
 type Result<T = void> = { success: true; data?: T } | { success: false; error: string };
 const PATH = "/";
 
-async function getUserClient() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in" } as const;
-  return { supabase, user } as const;
+type AuthResult = { userId: string } | { error: string };
+
+function toErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Unknown error";
+}
+
+async function getUser(): Promise<AuthResult> {
+  const session = await auth();
+  const userId = typeof session?.user?.id === "string" ? session.user.id : undefined;
+  if (!userId) return { error: "Not signed in" } as const;
+  return { userId } as const;
 }
 
 export async function createTask(input: {
@@ -22,145 +31,195 @@ export async function createTask(input: {
   priority?: TaskPriority;
   dueDate?: string | null;
 }): Promise<Result<{ id: string }>> {
-  const ctx = await getUserClient();
+  const ctx = await getUser();
   if ("error" in ctx) return { success: false, error: ctx.error };
-  const { supabase, user } = ctx;
+  const { userId } = ctx;
 
-  const { data, error } = await supabase
-    .from("tasks")
-    .insert({
-      user_id: user.id,
-      title: input.title.trim(),
-      description: input.description?.trim() || null,
-      priority: input.priority ?? "medium",
-      due_date: input.dueDate ?? null,
-      status: "todo" as TaskStatus,
-      sort_order: Date.now(),
-      updated_at: new Date().toISOString(),
-    })
-    .select("id")
-    .single();
+  try {
+    const [newTask] = await db
+      .insert(tasks)
+      .values({
+        userId,
+        title: input.title.trim(),
+        description: input.description?.trim() || null,
+        priority: input.priority ?? "medium",
+        dueDate: input.dueDate ?? null,
+        status: "todo",
+        sortOrder: Date.now(),
+        updatedAt: new Date(),
+      })
+      .returning({ id: tasks.id });
 
-  if (error) return { success: false, error: error.message };
-  revalidatePath(PATH);
-  return { success: true, data: { id: data.id } };
+    revalidatePath(PATH);
+    return { success: true, data: { id: newTask.id } };
+  } catch (error) {
+    return { success: false, error: toErrorMessage(error) };
+  }
 }
 
-export async function updateTask(id: string, updates: Partial<{ title: string; description: string | null; priority: TaskPriority; status: TaskStatus; dueDate: string | null }>): Promise<Result> {
-  const ctx = await getUserClient();
+export async function updateTask(
+  id: string,
+  updates: Partial<{ title: string; description: string | null; priority: TaskPriority; status: TaskStatus; dueDate: string | null }>
+): Promise<Result> {
+  const ctx = await getUser();
   if ("error" in ctx) return { success: false, error: ctx.error };
-  const { supabase, user } = ctx;
-  const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  const { userId } = ctx;
+
+  const payload: Partial<typeof tasks.$inferInsert> = { updatedAt: new Date() };
   if (updates.title !== undefined) payload.title = updates.title;
   if (updates.description !== undefined) payload.description = updates.description;
   if (updates.priority !== undefined) payload.priority = updates.priority;
   if (updates.status !== undefined) payload.status = updates.status;
-  if (updates.dueDate !== undefined) payload.due_date = updates.dueDate;
+  if (updates.dueDate !== undefined) payload.dueDate = updates.dueDate;
 
-  const { error } = await supabase
-    .from("tasks")
-    .update(payload)
-    .eq("id", id)
-    .eq("user_id", user.id);
+  try {
+    await db
+      .update(tasks)
+      .set(payload)
+      .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
 
-  if (error) return { success: false, error: error.message };
-  revalidatePath(PATH);
-  return { success: true };
+    revalidatePath(PATH);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: toErrorMessage(error) };
+  }
 }
 
 export async function deleteTask(id: string): Promise<Result> {
-  const ctx = await getUserClient();
+  const ctx = await getUser();
   if ("error" in ctx) return { success: false, error: ctx.error };
-  const { supabase, user } = ctx;
-  const { error } = await supabase.from("tasks").delete().eq("id", id).eq("user_id", user.id);
-  if (error) return { success: false, error: error.message };
-  revalidatePath(PATH);
-  return { success: true };
+  const { userId } = ctx;
+
+  try {
+    await db.delete(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+    revalidatePath(PATH);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: toErrorMessage(error) };
+  }
 }
 
-export async function savePlannerBlock(input: { id?: string; title: string; startsAt: string; endsAt: string; color?: string; linkedTaskId?: string | null; }): Promise<Result<{ id: string }>> {
-  const ctx = await getUserClient();
+export async function savePlannerBlock(input: {
+  id?: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  color?: string;
+  linkedTaskId?: string | null;
+}): Promise<Result<{ id: string }>> {
+  const ctx = await getUser();
   if ("error" in ctx) return { success: false, error: ctx.error };
-  const { supabase, user } = ctx;
+  const { userId } = ctx;
+
   const payload = {
-    id: input.id,
-    user_id: user.id,
+    ...(input.id ? { id: input.id } : {}),
+    userId,
     title: input.title.trim(),
-    starts_at: input.startsAt,
-    ends_at: input.endsAt,
+    startsAt: new Date(input.startsAt),
+    endsAt: new Date(input.endsAt),
     color: input.color ?? "blue",
-    linked_task_id: input.linkedTaskId ?? null,
+    linkedTaskId: input.linkedTaskId ?? null,
   } as const;
 
-  const { data, error } = await supabase
-    .from("planner_blocks")
-    .upsert(payload, { onConflict: "id" })
-    .select("id")
-    .single();
+  try {
+    const [block] = await db
+      .insert(plannerBlocks)
+      .values(payload)
+      .onConflictDoUpdate({
+        target: plannerBlocks.id,
+        set: payload,
+      })
+      .returning({ id: plannerBlocks.id });
 
-  if (error) return { success: false, error: error.message };
-  revalidatePath(PATH);
-  return { success: true, data: { id: data.id } };
+    revalidatePath(PATH);
+    return { success: true, data: { id: block.id } };
+  } catch (error) {
+    return { success: false, error: toErrorMessage(error) };
+  }
 }
 
 export async function deletePlannerBlock(id: string): Promise<Result> {
-  const ctx = await getUserClient();
+  const ctx = await getUser();
   if ("error" in ctx) return { success: false, error: ctx.error };
-  const { supabase, user } = ctx;
-  const { error } = await supabase.from("planner_blocks").delete().eq("id", id).eq("user_id", user.id);
-  if (error) return { success: false, error: error.message };
-  revalidatePath(PATH);
-  return { success: true };
+  const { userId } = ctx;
+
+  try {
+    await db.delete(plannerBlocks).where(and(eq(plannerBlocks.id, id), eq(plannerBlocks.userId, userId)));
+    revalidatePath(PATH);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: toErrorMessage(error) };
+  }
 }
 
-export async function saveNote(input: { id?: string; title: string; content?: string; pinned?: boolean; }): Promise<Result<{ id: string }>> {
-  const ctx = await getUserClient();
+export async function saveNote(input: {
+  id?: string;
+  title: string;
+  content?: string;
+  pinned?: boolean;
+}): Promise<Result<{ id: string }>> {
+  const ctx = await getUser();
   if ("error" in ctx) return { success: false, error: ctx.error };
-  const { supabase, user } = ctx;
+  const { userId } = ctx;
+
   const payload = {
-    id: input.id,
-    user_id: user.id,
+    ...(input.id ? { id: input.id } : {}),
+    userId,
     title: input.title.trim(),
     content: input.content ?? "",
     pinned: input.pinned ?? false,
-    updated_at: new Date().toISOString(),
+    updatedAt: new Date(),
   } as const;
 
-  const { data, error } = await supabase
-    .from("notes")
-    .upsert(payload, { onConflict: "id" })
-    .select("id")
-    .single();
+  try {
+    const [note] = await db
+      .insert(notes)
+      .values(payload)
+      .onConflictDoUpdate({
+        target: notes.id,
+        set: payload,
+      })
+      .returning({ id: notes.id });
 
-  if (error) return { success: false, error: error.message };
-  revalidatePath(PATH);
-  return { success: true, data: { id: data.id } };
+    revalidatePath(PATH);
+    return { success: true, data: { id: note.id } };
+  } catch (error) {
+    return { success: false, error: toErrorMessage(error) };
+  }
 }
 
 export async function deleteNote(id: string): Promise<Result> {
-  const ctx = await getUserClient();
+  const ctx = await getUser();
   if ("error" in ctx) return { success: false, error: ctx.error };
-  const { supabase, user } = ctx;
-  const { error } = await supabase.from("notes").delete().eq("id", id).eq("user_id", user.id);
-  if (error) return { success: false, error: error.message };
-  revalidatePath(PATH);
-  return { success: true };
+  const { userId } = ctx;
+
+  try {
+    await db.delete(notes).where(and(eq(notes.id, id), eq(notes.userId, userId)));
+    revalidatePath(PATH);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: toErrorMessage(error) };
+  }
 }
 
 export async function toggleNotePin(id: string, pinned: boolean): Promise<Result> {
   return updateNoteMeta(id, { pinned });
 }
 
-async function updateNoteMeta(id: string, meta: { pinned?: boolean }) {
-  const ctx = await getUserClient();
+async function updateNoteMeta(id: string, meta: { pinned?: boolean }): Promise<Result> {
+  const ctx = await getUser();
   if ("error" in ctx) return { success: false, error: ctx.error };
-  const { supabase, user } = ctx;
-  const { error } = await supabase
-    .from("notes")
-    .update({ ...meta, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .eq("user_id", user.id);
-  if (error) return { success: false, error: error.message };
-  revalidatePath(PATH);
-  return { success: true };
+  const { userId } = ctx;
+
+  try {
+    await db
+      .update(notes)
+      .set({ ...meta, updatedAt: new Date() })
+      .where(and(eq(notes.id, id), eq(notes.userId, userId)));
+
+    revalidatePath(PATH);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: toErrorMessage(error) };
+  }
 }

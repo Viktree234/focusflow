@@ -1,20 +1,20 @@
-﻿import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import type { Task, PlannerBlock, Note } from "@/lib/supabase/database.types";
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
+import { db } from "@/lib/db";
+import { tasks, plannerBlocks, notes } from "@/lib/db/schema";
+import { eq, asc, desc } from "drizzle-orm";
 import ProductivityClient from "./client";
 
 export default async function Page() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const session = await auth();
+  const user = session?.user;
 
-  if (!user) redirect("/auth/login");
+  if (!user || !user.id) redirect("/api/auth/signin");
 
-  const [{ data: tasks }, { data: blocks }, { data: notes }] = await Promise.all([
-    supabase.from("tasks").select("*").eq("user_id", user.id).order("sort_order", { ascending: true }),
-    supabase.from("planner_blocks").select("*").eq("user_id", user.id).order("starts_at", { ascending: true }),
-    supabase.from("notes").select("*").eq("user_id", user.id).order("pinned", { ascending: false }).order("updated_at", { ascending: false }),
+  const [userTasks, userBlocks, userNotes] = await Promise.all([
+    db.select().from(tasks).where(eq(tasks.userId, user.id)).orderBy(asc(tasks.sortOrder)),
+    db.select().from(plannerBlocks).where(eq(plannerBlocks.userId, user.id)).orderBy(asc(plannerBlocks.startsAt)),
+    db.select().from(notes).where(eq(notes.userId, user.id)).orderBy(desc(notes.pinned), desc(notes.updatedAt)),
   ]);
 
   return (
@@ -28,14 +28,14 @@ export default async function Page() {
         <div className="flex gap-2">
           <span className="badge">Dark mode</span>
           <span className="badge">Responsive</span>
-          <span className="badge">Supabase</span>
+          <span className="badge">NextAuth & Drizzle</span>
         </div>
       </header>
 
       <ProductivityClient
-        tasks={(tasks ?? []) as Task[]}
-        plannerBlocks={(blocks ?? []) as PlannerBlock[]}
-        notes={(notes ?? []) as Note[]}
+        tasks={userTasks}
+        plannerBlocks={userBlocks}
+        notes={userNotes}
       />
     </main>
   );
