@@ -1,41 +1,115 @@
-# Student Productivity Dashboard
+# FocusFlow - Student Productivity Dashboard
 
-A clean, mobile-first dashboard for students to manage tasks, daily planner blocks, and quick notes. Built with Next.js 14 (App Router), Tailwind, NextAuth, and Drizzle ORM on Aiven PostgreSQL.
+A modern productivity dashboard for students to manage tasks, plan study sessions, and capture notes. Built with Next.js 14, NextAuth.js, and Drizzle ORM.
 
 ## Features
-- To-do list with priorities, status, and due dates
-- Daily planner (time-blocking)
-- Quick notes with pin/unpin
-- Dark-mode friendly UI
-- GitHub OAuth + NextAuth sessions persisted in Postgres
 
-## Getting started
-1. Duplicate env template:
-   ```bash
-   cp .env.local.example .env.local
-   ```
-   Fill `DATABASE_URL` (Aiven connection string), `AUTH_SECRET` (generate via `openssl rand -base64 32`), `GITHUB_ID`, `GITHUB_SECRET`.
+- **Task Management** - Create, prioritize (low/medium/high), and track tasks from todo to done
+- **Schedule Planner** - Weekly calendar view to block study time and appointments
+- **Quick Notes** - Capture lecture notes and ideas with pinning support
+- **Progress Tracking** - Dashboard with completion stats and visual progress indicators
+- **GitHub OAuth** - Secure authentication with your GitHub account
+- **Dark Theme** - Beautiful dark UI optimized for focus
 
-2. Install deps and apply schema to Aiven:
-   ```bash
-   npm install
-   npm run db:push
-   ```
+## Tech Stack
 
-3. Run dev server:
-   ```bash
-   npm run dev
-   ```
+- **Framework**: Next.js 14 (App Router)
+- **Authentication**: NextAuth.js v5 with GitHub OAuth
+- **Database**: PostgreSQL (Aiven) with Drizzle ORM
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide React
+- **Fonts**: Inter + JetBrains Mono
 
-## Structure
-- app/page.tsx - server component, fetches user data and renders dashboard
-- app/client.tsx - client-side interactivity and optimistic updates
-- app/actions.ts - server actions for CRUD with Drizzle
-- auth.ts - NextAuth config with Drizzle adapter
-- lib/db/ - Drizzle client and schema
-- drizzle.config.ts - Drizzle Kit config
+## Getting Started
 
-## Notes
-- Unauthenticated users are redirected to `/api/auth/signin` (NextAuth default page).
-- Aiven typically requires TLS; `lib/db/index.ts` enables SSL by default.
-- Use `npm run db:generate` if you want migration SQL snapshots in `./drizzle`.
+### Prerequisites
+
+- Node.js 18+
+- PostgreSQL database (Aiven, Supabase, or local)
+- GitHub OAuth app
+
+### Installation
+
+```bash
+# Clone the repository
+git clone <your-repo-url>
+cd productivity-dashboard
+
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.local.example .env.local
+# Edit .env.local with your credentials:
+# - DATABASE_URL (PostgreSQL connection string)
+# - AUTH_SECRET (run: openssl rand -base64 32)
+# - GITHUB_ID (from GitHub OAuth app)
+# - GITHUB_SECRET (from GitHub OAuth app)
+
+# Push database schema
+npm run db:push
+
+# Run development server
+npm run dev
+```
+
+### GitHub OAuth Setup
+
+1. Go to GitHub Settings → Developer settings → OAuth Apps
+2. Create new OAuth App with:
+   - **Homepage URL**: `http://localhost:3000`
+   - **Authorization callback URL**: `http://localhost:3000/api/auth/callback/github`
+3. Add your Client ID and Client Secret to `.env.local`
+
+## Project Structure
+
+```
+app/
+├── (landing)/           # Marketing landing page
+│   └── page.tsx
+├── (dashboard)/         # Authenticated dashboard routes
+│   ├── layout.tsx      # Sidebar layout
+│   ├── dashboard/     # Main dashboard view
+│   ├── tasks/         # Task management
+│   ├── planner/      # Weekly calendar
+│   └── notes/         # Note-taking
+├── api/auth/           # NextAuth.js API routes
+└── globals.css         # Global styles
+
+lib/db/
+├── db.ts              # Database connection
+└── schema.ts          # Drizzle schema
+
+auth.ts                # NextAuth.js configuration
+drizzle.config.ts      # Drizzle configuration
+```
+
+## Deployment
+
+### Vercel (Recommended)
+
+```bash
+# Install Vercel CLI
+npm i -g vercel
+
+# Deploy
+vercel
+```
+
+Add your environment variables in the Vercel dashboard:
+- `DATABASE_URL`
+- `AUTH_SECRET`
+- `GITHUB_ID`
+- `GITHUB_SECRET`
+
+## Live Demo
+
+[View Demo](https://your-deployed-url.vercel.app)
+
+## Screenshot
+
+![Dashboard](https://via.placeholder.com/800x400/0a0a0b/7c3aed?text=FocusFlow+Dashboard)
+
+## License
+
+MIT
