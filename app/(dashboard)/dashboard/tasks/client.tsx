@@ -74,7 +74,7 @@ export default function TasksClient({ tasks }: { tasks: Task[] }) {
       const res = await createTask({
         title: optimistic.title,
         description: optimistic.description ?? undefined,
-        priority: optimistic.priority,
+        priority: optimistic.priority ?? undefined,
         dueDate: optimistic.dueDate ?? undefined,
       });
 
