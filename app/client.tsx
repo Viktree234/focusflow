@@ -384,7 +384,7 @@ export default function ProductivityClient({
                       </span>
 
                       <span className="badge">
-                        {statusLabel[task.status]}
+                        {statusLabel[task.status ?? "todo"]}
                       </span>
                     </div>
 
