@@ -27,7 +27,12 @@ body {
 }
 
 .input {
-  @apply w-full rounded-lg bg-white/[0.02] border border-white/10 px-3 py-2 text-sm text-white placeholder:text-white/30 outline-none focus:border-[var(--accent)]/50 focus:ring-1 focus:ring-[var(--accent)]/30 transition-colors;
+  @apply w-full rounded-lg bg-white/[0.02] border border-white/10 px-3 py-2 text-sm text-white placeholder:text-white/30 outline-none transition-colors;
+}
+
+.input:focus {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .badge {
