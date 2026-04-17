@@ -109,7 +109,7 @@ Add your environment variables in the Vercel dashboard:
 
 ## Screenshot
 
-![Dashboard](preview/image.png)
+![Dashboard](preview/preview.png)
 
 ## License
 
