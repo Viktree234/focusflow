@@ -113,4 +113,4 @@ Add your environment variables in the Vercel dashboard:
 
 ## License
 
-MIT
+[MIT](LICENSE)
