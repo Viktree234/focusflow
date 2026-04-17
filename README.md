@@ -109,7 +109,7 @@ Add your environment variables in the Vercel dashboard:
 
 ## Screenshot
 
-![Dashboard](https://via.placeholder.com/800x400/0a0a0b/7c3aed?text=FocusFlow+Dashboard)
+![Dashboard](preview/image.png)
 
 ## License
 
