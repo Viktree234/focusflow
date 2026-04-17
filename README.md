@@ -32,7 +32,7 @@ A modern productivity dashboard for students to manage tasks, plan study session
 
 ```bash
 # Clone the repository
-git clone <your-repo-url>
+git clone https://github.com/Viktree234/productivity-dashboard.git
 cd productivity-dashboard
 
 # Install dependencies
@@ -97,6 +97,7 @@ vercel
 ```
 
 Add your environment variables in the Vercel dashboard:
+
 - `DATABASE_URL`
 - `AUTH_SECRET`
 - `GITHUB_ID`
@@ -104,7 +105,7 @@ Add your environment variables in the Vercel dashboard:
 
 ## Live Demo
 
-[View Demo](https://your-deployed-url.vercel.app)
+[View Demo](https://productivity-dashboard-kappa-opal.vercel.app/)
 
 ## Screenshot
 
